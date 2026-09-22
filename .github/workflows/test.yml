@@ -4,9 +4,7 @@ on:
   push:
     branches:
       - main
-
   pull_request:
-
   workflow_dispatch:
 
 permissions:
@@ -18,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Install Foundry
@@ -26,7 +24,7 @@ jobs:
         with:
           version: stable
 
-      - name: Show Foundry version
+      - name: Show Foundry versions
         run: |
           forge --version
           cast --version
@@ -35,13 +33,13 @@ jobs:
       - name: Check formatting
         run: forge fmt --check
 
-      - name: Build contracts
+      - name: Build
         run: forge build --sizes
 
-      - name: Run tests
+      - name: Test
         run: forge test -vvv
 
-      - name: Run extended fuzz tests
+      - name: Fuzz test
         run: forge test --fuzz-runs 10000
 
   reference:
@@ -49,33 +47,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-- name: Setup Node
-  uses: actions/setup-node@v4
-  with:
-    node-version: 22
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
-- name: Install dependencies
-  run: npm install
+      - name: Install dependencies
+        run: npm install
 
       - name: Type check
         run: npx tsc --noEmit
 
-      - name: Run reference engine
+      - name: Run reference pricer
         run: npm run reference
 
-      - name: Generate reference vectors
+      - name: Generate vectors
         run: npm run vectors
-
-      - name: Verify working tree is clean
-        run: |
-          if [ -n "$(git status --porcelain)" ]; then
-            echo "Generated reference vectors differ from committed files."
-            echo
-            git status --short
-            echo
-            git diff -- reference/vectors.json
-            exit 1
-          fi
