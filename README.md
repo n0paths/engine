@@ -2,6 +2,8 @@
 
 # n0paths engine
 
+[![test](https://github.com/n0paths/engine/actions/workflows/test.yml/badge.svg)](https://github.com/n0paths/engine/actions/workflows/test.yml)
+
 **Deterministic pricing primitives for onchain markets.**
 
 `n0paths` is an experimental Solidity pricing engine for derivatives whose payoff depends on a distribution that can be approximated from deterministic moments.
