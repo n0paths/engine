@@ -8,8 +8,6 @@ Deterministic pricing primitives for onchain markets.
 
 The first implemented instrument is a discretely monitored arithmetic Asian call under risk-neutral geometric Brownian motion.
 
-The engine computes the first two moments of the arithmetic average analytically, fits a lognormal distribution to those moments, and evaluates the resulting call payoff deterministically.
-
 ```text
 market state
      │
@@ -29,7 +27,7 @@ deterministic payoff approximation
 discounted price
 ```
 
-The same inputs produce the same outputs.
+Same inputs → same outputs.
 
 ---
 
@@ -37,218 +35,162 @@ The same inputs produce the same outputs.
 
 Under the risk-neutral measure, the underlying follows geometric Brownian motion:
 
-$$
-dS_t = (r-q)S_t\,dt + \sigma S_t\,dW_t
-$$
+```text
+dSₜ = (r - q)Sₜ dt + σSₜ dWₜ
+```
 
 where:
 
-- $S_t$ is the underlying price,
-- $r$ is the continuously compounded risk-free rate,
-- $q$ is the continuous dividend or convenience yield,
-- $\sigma$ is volatility,
-- $W_t$ is a standard Brownian motion.
+- `Sₜ` is the underlying price,
+- `r` is the continuously compounded risk-free rate,
+- `q` is the continuous dividend or convenience yield,
+- `σ` is volatility,
+- `Wₜ` is a standard Brownian motion.
 
-The engine currently assumes constant $r$, $q$, and $\sigma$ over the life of the option.
+The current model assumes constant `r`, `q`, and `σ` over the life of the option.
 
 ---
 
 ## Arithmetic Asian call
 
-For $n$ equally spaced future observations,
+For `n` equally spaced future observations:
 
-$$
-t_i = \frac{iT}{n},
-\qquad i=1,\ldots,n
-$$
+```text
+tᵢ = iT / n,    i = 1, ..., n
+```
 
-where $T$ is time to expiry.
+The observation schedule excludes `t = 0` and includes `T`.
 
-The observation schedule excludes $t=0$ and includes $T$.
+The arithmetic average is:
 
-The arithmetic average is
+```text
+A = (1/n) Σ S(tᵢ)
+```
 
-$$
-A =
-\frac{1}{n}
-\sum_{i=1}^{n} S(t_i)
-$$
+The call payoff at expiry is:
 
-and the call payoff at expiry is
+```text
+payoff = max(A - K, 0)
+```
 
-$$
-(A-K)^+
-=
-\max(A-K,0)
-$$
-
-where $K$ is the strike.
+where `K` is the strike.
 
 ---
 
 ## First moment
 
-Under risk-neutral GBM,
+Under risk-neutral GBM:
 
-$$
-\mathbb{E}[S(t_i)]
-=
-S_0 e^{(r-q)t_i}
-$$
+```text
+E[S(tᵢ)] = S₀ · exp((r - q)tᵢ)
+```
 
-therefore the first moment of the arithmetic average is
+Therefore:
 
-$$
-M_1
-=
-\mathbb{E}[A]
-=
-\frac{S_0}{n}
-\sum_{i=1}^{n}
-e^{(r-q)t_i}.
-$$
+```text
+M₁ = E[A]
 
-This quantity is computed directly from the model assumptions.
+   = (S₀/n) Σ exp((r - q)tᵢ)
+```
+
+`M₁` is the exact first moment of the discrete arithmetic average under the stated GBM assumptions.
 
 ---
 
 ## Second moment
 
-For two monitoring dates $t_i$ and $t_j$,
+For two monitoring dates `tᵢ` and `tⱼ`:
 
-$$
-\mathbb{E}[S(t_i)S(t_j)]
-=
-S_0^2
-\exp
-\left(
-(r-q)(t_i+t_j)
-+
-\sigma^2\min(t_i,t_j)
-\right).
-$$
+```text
+E[S(tᵢ)S(tⱼ)]
+    = S₀² · exp(
+        (r - q)(tᵢ + tⱼ)
+        + σ² min(tᵢ, tⱼ)
+      )
+```
 
-The second moment of the arithmetic average is therefore
+Therefore:
 
-$$
-M_2
-=
-\mathbb{E}[A^2]
-=
-\frac{S_0^2}{n^2}
-\sum_{i=1}^{n}
-\sum_{j=1}^{n}
-\exp
-\left(
-(r-q)(t_i+t_j)
-+
-\sigma^2\min(t_i,t_j)
-\right).
-$$
+```text
+M₂ = E[A²]
 
-The first and second moments are analytical under the stated discrete GBM assumptions.
+   = (S₀²/n²) Σᵢ Σⱼ exp(
+       (r - q)(tᵢ + tⱼ)
+       + σ² min(tᵢ, tⱼ)
+     )
+```
 
-The current implementation evaluates the second moment in $O(n^2)$ time.
+`M₂` is the exact second moment under the same discrete GBM assumptions.
+
+The current implementation evaluates the double sum in `O(n²)` time.
 
 ---
 
 ## Lognormal moment matching
 
-The arithmetic average of lognormal variables is not itself generally lognormal.
+The arithmetic average of lognormal variables is not generally lognormal.
 
-The engine therefore approximates $A$ with a lognormal random variable whose first two moments match $M_1$ and $M_2$.
+The engine therefore approximates `A` with a lognormal random variable whose first two moments match `M₁` and `M₂`.
 
-Let
+```text
+ln(A) ~ Normal(μₐ, σₐ²)
+```
 
-$$
-\ln A
-\sim
-\mathcal{N}(\mu_A,\sigma_A^2).
-$$
+Matching the moments gives:
 
-Matching the first two moments gives
+```text
+σₐ² = ln(M₂ / M₁²)
+```
 
-$$
-\sigma_A^2
-=
-\ln
-\left(
-\frac{M_2}{M_1^2}
-\right)
-$$
+and:
 
-and
+```text
+μₐ = ln(M₁) - ½σₐ²
+```
 
-$$
-\mu_A
-=
-\ln(M_1)
--
-\frac{1}{2}\sigma_A^2.
-$$
+The approximation boundary is explicit:
 
-This is the approximation boundary of the pricing method:
+```text
+M₁, M₂              analytical under the stated model
+lognormal fit        approximation
+```
 
-> $M_1$ and $M_2$ are analytical under the model.  
-> The lognormal representation of the arithmetic average is an approximation.
+The deterministic nature of the engine does not make the distributional approximation exact.
 
 ---
 
 ## Pricing
 
-For non-zero effective variance,
+Define:
 
-$$
-d_2
-=
-\frac{
-\mu_A-\ln K
-}{
-\sigma_A
-}
-$$
+```text
+d₂ = (μₐ - ln(K)) / σₐ
 
-and
+d₁ = d₂ + σₐ
+```
 
-$$
-d_1
-=
-d_2+\sigma_A.
-$$
+Using the fitted distribution, the expected payoff is approximated by:
 
-The undiscounted expected call payoff is approximated by
+```text
+E[max(A - K, 0)]
+    ≈ M₁ Φ(d₁) - K Φ(d₂)
+```
 
-$$
-\mathbb{E}[(A-K)^+]
-\approx
-M_1\Phi(d_1)
--
-K\Phi(d_2),
-$$
+where `Φ` is the standard normal cumulative distribution function.
 
-where $\Phi(\cdot)$ is the standard normal cumulative distribution function.
+The time-zero value is:
 
-The time-zero price is
+```text
+V₀ = exp(-rT) · [M₁ Φ(d₁) - K Φ(d₂)]
+```
 
-$$
-V_0
-=
-e^{-rT}
-\left[
-M_1\Phi(d_1)
--
-K\Phi(d_2)
-\right].
-$$
+For a zero-variance distribution:
 
-For a degenerate zero-variance distribution, the engine instead evaluates the deterministic payoff directly:
+```text
+V₀ = exp(-rT) · max(M₁ - K, 0)
+```
 
-$$
-V_0
-=
-e^{-rT}
-\max(M_1-K,0).
-$$
+This branch handles the deterministic limit directly.
 
 ---
 
@@ -267,13 +209,13 @@ src/
     └── TranscendentalMath.sol
 ```
 
-The pricing pipeline is intentionally separated into numerical components:
+The pricing pipeline is separated into numerical components:
 
 ```text
 AsianMoments
      │
      ▼
-M₁, M₂
+   M₁, M₂
      │
      ▼
 AsianPricing
@@ -287,7 +229,9 @@ AsianPricing
 N0PathsEngine
 ```
 
-`N0PathsEngine.sol` exposes the external pricing interface while the libraries contain the underlying numerical routines.
+`N0PathsEngine.sol` exposes the pricing interface.
+
+The libraries contain the underlying numerical routines.
 
 ---
 
@@ -303,27 +247,30 @@ The Solidity implementation uses 18-decimal fixed-point arithmetic.
 1 year    = 1e18
 ```
 
-For example:
+Example:
 
 ```solidity
 uint256 spot = 100e18;
 uint256 strike = 100e18;
+
 uint256 volatility = 0.60e18;
+
 int256 riskFreeRate = 0.04e18;
 int256 dividendYield = 0;
+
 uint256 timeToExpiry = 1e18;
 uint256 observations = 30;
 ```
 
 Rates and yields are signed.
 
-Spot, strike, volatility, time to expiry, and observations are represented by unsigned values.
+Spot, strike, volatility, time to expiry, and observation count use unsigned values.
 
 ---
 
 ## Interface
 
-The primary entry point is:
+The primary pricing entry point is:
 
 ```solidity
 priceAsianCall(
@@ -332,7 +279,7 @@ priceAsianCall(
 )
 ```
 
-The market state contains:
+Market state:
 
 ```solidity
 struct MarketState {
@@ -343,7 +290,7 @@ struct MarketState {
 }
 ```
 
-The option definition contains:
+Option definition:
 
 ```solidity
 struct AsianOption {
@@ -353,34 +300,66 @@ struct AsianOption {
 }
 ```
 
-The returned pricing result includes the price together with intermediate distribution information used by the engine.
+The pricing result contains the discounted price together with intermediate distribution information used by the engine.
+
+Conceptually:
+
+```text
+MarketState
+     +
+AsianOption
+     │
+     ▼
+N0PathsEngine
+     │
+     ▼
+PriceResult
+```
 
 ---
 
 ## Greeks
 
-The engine also exposes numerical Greeks for the arithmetic Asian call.
+The engine exposes numerical Greeks for the arithmetic Asian call.
 
 The current interface computes:
 
 ```text
-Delta
-Vega
+Δ  Delta
+V  Vega
 ```
 
-These are obtained using deterministic finite differences around the same pricing function.
+Delta is estimated using a central spot bump.
 
-Delta uses a central spot bump.
+Vega is estimated using a central volatility bump when possible and a forward difference near zero volatility.
 
-Vega uses a central volatility bump when possible and a forward difference close to zero volatility.
+Conceptually:
 
-The Greek calculation therefore inherits both the pricing approximation and finite-difference numerical error.
+```text
+             price(S + ΔS)
+                   │
+price(S) ──────────┼──→ Delta
+                   │
+             price(S - ΔS)
+```
+
+and:
+
+```text
+             price(σ + Δσ)
+                   │
+price(σ) ──────────┼──→ Vega
+                   │
+             price(σ - Δσ)
+```
+
+The Greeks inherit the pricing approximation and introduce finite-difference numerical error of their own.
 
 ---
 
 ## Determinism
 
-The Solidity pricing path does not depend on random sampling.
+The Solidity pricing path does not use random sampling.
 
 For fixed:
 
@@ -394,11 +373,30 @@ time to expiry
 observation count
 ```
 
-the same implementation produces the same result.
+the same implementation produces the same output.
 
-This removes Monte Carlo sampling variance from the onchain pricing computation.
+```text
+same inputs
+     │
+     ▼
+same execution
+     │
+     ▼
+same output
+```
 
-It does **not** remove model error, approximation error, fixed-point error, or implementation error.
+This removes sampling variance from the pricing computation.
+
+It does not remove:
+
+```text
+model error
+approximation error
+fixed-point error
+implementation error
+```
+
+In particular:
 
 ```text
 0 sampling error ≠ 0 pricing error
@@ -408,12 +406,13 @@ It does **not** remove model error, approximation error, fixed-point error, or i
 
 ## Numerical methods
 
-The engine implements the numerical primitives required by the pricing model directly in Solidity.
+The engine implements the numerical primitives required by the model directly in Solidity.
 
 These include:
 
 ```text
-fixed-point multiplication and division
+fixed-point multiplication
+fixed-point division
 exp(x)
 ln(x)
 sqrt(x)
@@ -421,40 +420,78 @@ normal PDF
 normal CDF
 ```
 
-The implementation is designed around deterministic WAD arithmetic rather than floating-point arithmetic.
+The implementation uses deterministic WAD arithmetic rather than floating-point arithmetic.
 
-Approximation and rounding error therefore remain part of the numerical error budget.
+The numerical pipeline therefore has several distinct error sources:
 
-See:
+```text
+model assumptions
+      │
+      ▼
+distribution approximation
+      │
+      ▼
+transcendental approximations
+      │
+      ▼
+fixed-point rounding
+      │
+      ▼
+final price
+```
+
+Additional details are documented in:
 
 ```text
 docs/METHOD.md
 docs/NUMERICS.md
 ```
 
-for the mathematical and numerical details.
-
 ---
 
 ## Reference implementation
 
-A TypeScript implementation is included under:
+A TypeScript reference implementation lives under:
 
 ```text
 reference/
 ```
 
-It provides an independent floating-point representation of the pricing equations and is used to generate reference vectors.
+Relevant files include:
 
 ```text
 reference/pricing.ts
-scripts/generate-vectors.ts
 reference/vectors.json
+scripts/generate-vectors.ts
 ```
 
-The reference implementation is intended for validation and development.
+The reference implementation uses floating-point arithmetic to represent the same mathematical pricing method independently from the Solidity numerical implementation.
+
+It is intended for development and validation.
 
 It is not an oracle and should not be interpreted as an external source of market truth.
+
+---
+
+## Reference vectors
+
+Reference scenarios can be generated with:
+
+```bash
+npm run vectors
+```
+
+The generator evaluates predefined scenarios and writes machine-readable outputs.
+
+Reference vectors are useful for comparing:
+
+```text
+TypeScript reference
+        ↕
+Solidity implementation
+```
+
+Generated values should be treated as reproducible test data, not manually selected target prices.
 
 ---
 
@@ -462,18 +499,50 @@ It is not an oracle and should not be interpreted as an external source of marke
 
 Experimental validation is maintained separately in:
 
-`n0paths/benchmarks`
+```text
+n0paths/benchmarks
+```
 
-The benchmark suite compares the deterministic approximation against seeded Monte Carlo experiments using the same GBM assumptions and observation schedule.
+The benchmark repository compares two independent computational paths:
+
+```text
+deterministic path
+
+GBM assumptions
+      │
+      ▼
+exact M₁ and M₂
+      │
+      ▼
+lognormal fit
+      │
+      ▼
+deterministic price
+
+
+simulation path
+
+GBM assumptions
+      │
+      ▼
+exact GBM transitions
+      │
+      ▼
+simulated arithmetic averages
+      │
+      ▼
+discounted payoffs
+      │
+      ▼
+Monte Carlo estimate
+```
 
 The separation is intentional:
 
 ```text
-engine
-  → implementation
+engine       → implementation
 
-benchmarks
-  → experiments and validation
+benchmarks   → experiments / validation
 ```
 
 Monte Carlo estimates should always be interpreted together with their sampling uncertainty.
@@ -482,20 +551,33 @@ Monte Carlo estimates should always be interpreted together with their sampling 
 
 ## Testing
 
-The repository uses Foundry for Solidity tests.
+The Solidity project uses Foundry.
+
+Build:
 
 ```bash
 forge build
+```
+
+Run tests:
+
+```bash
 forge test
 ```
 
-The CI workflow also runs fuzz testing:
+Verbose tests:
+
+```bash
+forge test -vvv
+```
+
+CI fuzz testing:
 
 ```bash
 forge test --fuzz-runs 10000
 ```
 
-The test suite is intended to cover properties such as:
+The test suite is designed around properties including:
 
 ```text
 deterministic repeatability
@@ -503,26 +585,78 @@ moment calculations
 pricing monotonicity
 zero-volatility behavior
 fixed-point numerical primitives
-reference-vector consistency
+reference-vector comparisons
 ```
 
-GitHub Actions runs the Solidity and TypeScript reference checks on pushes and pull requests.
+GitHub Actions runs Solidity and TypeScript checks on pushes and pull requests.
+
+---
+
+## CI
+
+The repository includes:
+
+```text
+.github/workflows/test.yml
+```
+
+The workflow checks:
+
+```text
+Solidity
+├── formatting
+├── build
+├── tests
+└── fuzz tests
+
+TypeScript reference
+├── type checking
+├── reference execution
+└── vector generation
+```
+
+A green workflow means the configured checks completed successfully for that revision.
+
+It is not an audit or proof of economic correctness.
+
+---
+
+## Complexity
+
+For `n` observation dates, the current moment implementation requires:
+
+```text
+first moment     O(n)
+
+second moment    O(n²)
+```
+
+The second moment dominates the arithmetic Asian pricing path as `n` increases.
+
+The deterministic method therefore removes simulation path count from the pricing computation, but it is not constant-cost with respect to the observation count.
 
 ---
 
 ## Approximation boundary
 
-The engine should not be described as an exact closed-form solution for an arithmetic Asian option.
+The engine is not an exact closed-form solution for an arithmetic Asian option.
 
-The distinction is:
+The current method can be summarized as:
 
 ```text
-GBM first moment                    analytical
-GBM second moment                   analytical
-lognormal fit                       approximate
-normal CDF implementation           numerical approximation
-Solidity fixed-point arithmetic     numerical approximation
-finite-difference Greeks            numerical approximation
+GBM first moment                 analytical
+GBM second moment                analytical
+
+arithmetic-average
+distribution                    approximated
+
+lognormal moment fit             approximated
+
+normal CDF                       numerically approximated
+
+Solidity arithmetic              fixed-point
+
+Greeks                           finite differences
 ```
 
 The deterministic property concerns execution:
@@ -534,29 +668,51 @@ same inputs → same outputs
 It does not imply:
 
 ```text
-same model → exact market price
+model assumptions → exact market price
 ```
+
+---
+
+## What the engine does not claim
+
+The project does not currently claim:
+
+```text
+exact arithmetic Asian pricing
+production readiness
+audit completion
+mainnet deployment
+oracle integration
+universal market calibration
+zero numerical error
+```
+
+The current implementation is research software.
 
 ---
 
 ## Current limitations
 
-The current implementation is experimental.
+The current model and implementation assume:
 
-Important limitations include:
-
-- constant volatility, rates, and dividend yield,
-- risk-neutral GBM dynamics,
+- risk-neutral geometric Brownian motion,
+- constant volatility,
+- constant risk-free rate,
+- constant dividend or convenience yield,
 - equally spaced future observations,
-- no observation at $t=0$,
-- lognormal moment matching for the arithmetic average,
-- $O(n^2)$ second-moment evaluation,
-- fixed-point approximation error,
-- numerical normal-CDF approximation,
-- finite-difference Greeks,
-- no claim of production readiness or audit status.
+- no observation at `t = 0`,
+- lognormal moment matching for the arithmetic average.
 
-The current engine should be treated as research software.
+Implementation limitations include:
+
+- `O(n²)` second-moment evaluation,
+- fixed-point approximation error,
+- numerical `exp` and `ln`,
+- numerical normal CDF,
+- finite-difference Greeks,
+- finite numerical domains for practical Solidity execution.
+
+The supported domain should therefore be validated explicitly before any production use.
 
 ---
 
@@ -567,39 +723,81 @@ engine/
 ├── .github/
 │   └── workflows/
 │       └── test.yml
+│
 ├── docs/
 │   ├── METHOD.md
 │   └── NUMERICS.md
+│
 ├── reference/
 │   ├── pricing.ts
 │   └── vectors.json
+│
 ├── scripts/
 │   ├── benchmark.ts
 │   └── generate-vectors.ts
+│
 ├── src/
 │   ├── interfaces/
 │   │   └── IPricingEngine.sol
+│   │
 │   ├── libraries/
 │   │   ├── AsianMoments.sol
 │   │   ├── AsianPricing.sol
 │   │   ├── FixedPointMath.sol
 │   │   ├── NormalDistribution.sol
 │   │   └── TranscendentalMath.sol
+│   │
 │   └── N0PathsEngine.sol
+│
 ├── test/
+│
 ├── foundry.toml
 ├── package.json
 ├── tsconfig.json
+├── LICENSE
 └── README.md
 ```
 
 ---
 
+## Research direction
+
+The current arithmetic Asian implementation is the first pricing primitive.
+
+The broader research direction is deterministic evaluation of derivative payoffs using compact representations that are suitable for constrained execution environments.
+
+The immediate focus is:
+
+```text
+correctness
+    ↓
+numerical validation
+    ↓
+reproducibility
+    ↓
+benchmarking
+    ↓
+additional pricing primitives
+```
+
+New models and instruments should be added only with explicit assumptions, numerical methodology, validation, and approximation boundaries.
+
+---
+
 ## Status
 
-Experimental research software.
+**Experimental research software.**
 
-The project currently focuses on making the pricing method explicit, deterministic, reproducible, and testable before expanding the supported model and instrument surface.
+The current objective is to make the pricing method:
+
+```text
+explicit
+deterministic
+reproducible
+testable
+```
+
+before expanding the supported model and instrument surface.
 
 No audit or production deployment is claimed.
 
