@@ -1,5 +1,3 @@
-[![test](https://github.com/n0paths/n0paths-/actions/workflows/test.yml/badge.svg)](https://github.com/n0paths/n0paths-/actions/workflows/test.yml)
-
 # n0paths engine
 
 [![test](https://github.com/n0paths/engine/actions/workflows/test.yml/badge.svg)](https://github.com/n0paths/engine/actions/workflows/test.yml)
