@@ -1,0 +1,82 @@
+name: test
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  solidity:
+    name: Solidity
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Show Foundry version
+        run: |
+          forge --version
+          cast --version
+          anvil --version
+
+      - name: Check formatting
+        run: forge fmt --check
+
+      - name: Build contracts
+        run: forge build --sizes
+
+      - name: Run tests
+        run: forge test -vvv
+
+      - name: Run extended fuzz tests
+        run: forge test --fuzz-runs 10000
+
+  reference:
+    name: TypeScript reference
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Run reference engine
+        run: npm run reference
+
+      - name: Generate reference vectors
+        run: npm run vectors
+
+      - name: Verify working tree is clean
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Generated reference vectors differ from committed files."
+            echo
+            git status --short
+            echo
+            git diff -- reference/vectors.json
+            exit 1
+          fi
