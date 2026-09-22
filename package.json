@@ -1,0 +1,27 @@
+{
+  "name": "@n0paths/engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deterministic pricing primitives for onchain markets.",
+  "license": "MIT",
+  "scripts": {
+    "build": "forge build",
+    "test": "forge test",
+    "test:verbose": "forge test -vvv",
+    "test:ci": "forge test --fuzz-runs 10000",
+    "fmt": "forge fmt",
+    "fmt:check": "forge fmt --check",
+    "reference": "tsx reference/pricing.ts",
+    "vectors": "tsx scripts/generate-vectors.ts",
+    "benchmark": "tsx scripts/benchmark.ts",
+    "check": "npm run fmt:check && npm run build && npm run test"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
