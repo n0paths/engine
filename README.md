@@ -2,6 +2,28 @@
   <img src="hero.png.png" alt="n0paths — deterministic pricing primitives for onchain markets" width="100%">
 </p>
 
+<p align="center">
+  <a href="https://n0paths.xyz/">Website</a>
+  &nbsp;·&nbsp;
+  <a href="https://x.com/n0paths">X</a>
+  &nbsp;·&nbsp;
+  <a href="https://etherscan.io/address/0x72D8a762F2b1C317b85a437EB826aBeD79EDF5Dc">Etherscan</a>
+  &nbsp;·&nbsp;
+  <a href="https://n0paths.xyz/method">Method</a>
+  &nbsp;·&nbsp;
+  <a href="https://n0paths.xyz/code">Code</a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/n0paths/benchmarks">Benchmarks</a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/n0paths/engine/actions">CI</a>
+  &nbsp;·&nbsp;
+  <a href="./LICENSE">MIT</a>
+</p>
+
+<p align="center">
+  <img src="https://github.com/n0paths/engine/actions/workflows/test.yml/badge.svg" alt="test">
+</p>
+
 # n0paths engine
 
 Deterministic pricing primitives for onchain markets.
