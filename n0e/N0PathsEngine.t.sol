@@ -47,7 +47,7 @@ contract N0PathsEngineTest {
             observations: 30
         });
     }
-
+;
     function _price(
         IPricingEngine.MarketState memory market,
         IPricingEngine.AsianOption memory option
